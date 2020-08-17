@@ -1,5 +1,6 @@
 FROM centos:7
 
+USER root
 RUN yum update -y && yum install -y git curl java java-devel unzip which && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.rpm.sh | bash && yum install -y git-lfs && yum clean all
 ENV JAVA_HOME /etc/alternatives/jre_openjdk
 
@@ -19,6 +20,7 @@ ENV REF $REF
 # Jenkins is run with user `jenkins`, uid = 1000
 # If you bind mount a volume from the host or a data container,
 # ensure you use the same uid
+
 RUN mkdir -p -v $JENKINS_HOME \
   && chown -v  ${uid}:${gid} $JENKINS_HOME \
   && groupadd -g ${gid} ${group} \
@@ -80,16 +82,18 @@ USER ${user}
 
 # from a derived Dockerfile, can use `RUN plugins.sh active.txt` to setup $REF/plugins from a support bundle
 #COPY plugins.sh /usr/local/bin/plugins.sh
+USER root
 COPY install-plugins.sh /usr/local/bin/install-plugins.sh
 
 # Add/Remove  the plugins you want  
-RUN /usr/local/bin/install-plugins.sh \  
-  dashboard-view:2.9.10 \  
-  pipeline-stage-view:2.4 \  
-  parameterized-trigger:2.32 \  
-  #bitbucket:1.1.5 \  
-  git:3.0.5 \  
-  github:1.26.0
+# user root
+# RUN /usr/local/bin/install-plugins.sh \  
+#  dashboard-view:2.9.10 \  
+#  pipeline-stage-view:2.4 \  
+#  parameterized-trigger:2.32 \  
+#  #bitbucket:1.1.5 \  
+#  git:3.0.5 \  
+#  github:1.26.0
 
 # Add the main config file to the jenkins path  
 COPY /configs/jenkins_home_config.xml "$JENKINS_HOME"/config.xml

@@ -2,14 +2,15 @@ version: '3.7'
 services:
   jenkins:
     image: jenkins/jenkins:2.223.1
-  environment:  
-    JAVA_OPTS: "-Djava.awt.headless=true"  
-    JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Start jenkins unlocked 
-    privileged: true
-    user: root
-    ports:
-      - "8081:8080"
-      - "50000:50000"
+  environment:
+    - TZ=Europe/Paris
+    - JAVA_OPTS= "-Djava.awt.headless=true"
+    - JAVA_OPTS= "-Djenkins.install.runSetupWizard=false" # Start jenkins unlocked 
+  privileged: true
+  user: jenkins
+  ports:
+    - "8081:8080"
+    - "50000:50000"
     container_name: jenkins
     volumes:
       - ~/jenkins:/var/jenkins_home
