@@ -1,0 +1,35 @@
+FROM openjdk:8-jdk-stretch
+
+# Install git lfs on Debian stretch per https://github.com/git-lfs/git-lfs/wiki/Installation#debian-and-ubuntu
+# Avoid JENKINS-59569 - git LFS 2.7.1 fails clone with reference repository
+RUN apt-get update && apt-get upgrade -y && apt-get install -y git curl && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && apt-get install -y git-lfs && git lfs install && rm -rf /var/lib/apt/lists/*
+
+ARG user=jenkins
+ARG group=jenkins
+ARG uid=1000
+ARG gid=1000
+ARG http_port=8080
+ARG agent_port=50000
+ARG JENKINS_HOME=/var/jenkins_home
+ARG REF=/usr/share/jenkins/ref
+
+ENV JENKINS_HOME $JENKINS_HOME
+ENV JENKINS_SLAVE_AGENT_PORT ${agent_port}
+ENV REF $REF
+
+# Jenkins is run with user `jenkins`, uid = 1000
+# If you bind mount a volume from the host or a data container,
+# ensure you use the same uid
+RUN mkdir -p $JENKINS_HOME \
+  && chown ${uid}:${gid} $JENKINS_HOME \
+  && groupadd -g ${gid} ${group} \
+  && useradd -d "$JENKINS_HOME" -u ${uid} -g ${gid} -m -s /bin/bash ${user}
+
+# Jenkins home directory is a volume, so configuration and build history
+# can be persisted and survive image upgrades
+VOLUME $JENKINS_HOME
+
+# $REF (defaults to `/usr/share/jenkins/ref/`) contains all reference configuration we want
+# to set on a fresh new installation. Use it to bundle additional plugins
+# or config file with your custom jenkins Docker image.
+RUN mkdir -p ${REF}/init.groovy.d
