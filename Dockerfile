@@ -1,6 +1,9 @@
 FROM centos:7
 
-RUN yum update -y && yum install -y git curl java java-devel unzip which && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.rpm.sh | bash && yum install -y git-lfs && yum clean all
+RUN yum update -y \
+ && yum install -y git curl java java-devel unzip which \
+ && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.rpm.sh | bash \
+ && yum install -y git-lfs && yum clean all
 ENV JAVA_HOME /etc/alternatives/jre_openjdk
 
 ARG user=jenkins
@@ -12,43 +15,40 @@ ARG agent_port=50000
 ARG JENKINS_HOME=/var/jenkins_home
 ARG REF=/usr/share/jenkins/ref
 
-ENV JENKINS_HOME $JENKINS_HOME
+ENV JENKINS_HOME ${JENKINS_HOME}
 ENV JENKINS_SLAVE_AGENT_PORT ${agent_port}
-ENV REF $REF
-
-# Skip initial setup
-ENV JAVA_OPTS -Djenkins.install.runSetupWizard=true
+ENV REF ${REF}
 
 # Jenkins is run with user `jenkins`, uid = 1000
 # If you bind mount a volume from the host or a data container,
 # ensure you use the same uid
-RUN mkdir -p $JENKINS_HOME \
-  && chown ${uid}:${gid} $JENKINS_HOME \
+RUN mkdir --parents --verbose ${JENKINS_HOME} \
+  && chown --recursive --verbose -R ${uid}:${gid} ${JENKINS_HOME} \
   && groupadd -g ${gid} ${group} \
-  && useradd -d "$JENKINS_HOME" -u ${uid} -g ${gid} -m -s /bin/bash ${user}
+  && useradd -d "${JENKINS_HOME}" -u ${uid} -g ${gid} -m -s /bin/bash ${user}
 
 # Jenkins home directory is a volume, so configuration and build history
 # can be persisted and survive image upgrades
-VOLUME $JENKINS_HOME
+VOLUME ${JENKINS_HOME}
 
-# $REF (defaults to `/usr/share/jenkins/ref/`) contains all reference configuration we want
+# ${REF} (defaults to `/usr/share/jenkins/ref/`) contains all reference configuration we want
 # to set on a fresh new installation. Use it to bundle additional plugins
 # or config file with your custom jenkins Docker image.
-RUN mkdir -p ${REF}/init.groovy.d
+RUN mkdir --parents --verbose ${REF}/init.groovy.d
 
-# # Use tini as subreaper in Docker container to adopt zombie processes
+# Use tini as subreaper in Docker container to adopt zombie processes
 ARG TINI_VERSION=v0.16.1
-# COPY tini_pub.gpg ${JENKINS_HOME}/tini_pub.gpg
-# RUN curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64 -o /sbin/tini \
-#   && curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64.asc -o /sbin/tini.asc \
-#   && gpg --no-tty --import ${JENKINS_HOME}/tini_pub.gpg \
-#   && gpg --verify /sbin/tini.asc \
-#   && rm -rf /sbin/tini.asc /root/.gnupg \
-#  && chmod +x /sbin/tini
+COPY tini_pub.gpg ${JENKINS_HOME}/tini_pub.gpg
+RUN curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64 -o /sbin/tini \
+  && curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64.asc -o /sbin/tini.asc \
+  && gpg --no-tty --import ${JENKINS_HOME}/tini_pub.gpg \
+  && gpg --verify /sbin/tini.asc \
+  && rm --recursive --force --verbose /sbin/tini.asc /root/.gnupg \
+  && chmod --verbose +x /sbin/tini
 
 # jenkins version being bundled in this docker image
 ARG JENKINS_VERSION
-ENV JENKINS_VERSION ${JENKINS_VERSION:-2.150.1}
+ENV JENKINS_VERSION ${JENKINS_VERSION:-2.121.1}
 
 # jenkins.war checksum, download will be validated using it
 ARG JENKINS_SHA=5bb075b81a3929ceada4e960049e37df5f15a1e3cfc9dc24d749858e70b48919
@@ -61,12 +61,10 @@ ARG JENKINS_URL=https://repo.jenkins-ci.org/public/org/jenkins-ci/main/jenkins-w
 RUN curl -fsSL ${JENKINS_URL} -o /usr/share/jenkins/jenkins.war \
   && echo "${JENKINS_SHA}  /usr/share/jenkins/jenkins.war" | sha256sum -c -
 
-# ENV http_proxy 10.239.4.80:913
-
 ENV JENKINS_UC https://updates.jenkins.io
 ENV JENKINS_UC_EXPERIMENTAL=https://updates.jenkins.io/experimental
 ENV JENKINS_INCREMENTALS_REPO_MIRROR=https://repo.jenkins-ci.org/incrementals
-RUN chown -R ${user} "$JENKINS_HOME" "$REF"
+RUN chown --recursive --verbose ${user} "${JENKINS_HOME}" "${REF}"
 
 # for main web interface:
 EXPOSE ${http_port}
@@ -74,7 +72,7 @@ EXPOSE ${http_port}
 # will be used by attached slave agents:
 EXPOSE ${agent_port}
 
-ENV COPY_REFERENCE_FILE_LOG $JENKINS_HOME/copy_reference_file.log
+ENV COPY_REFERENCE_FILE_LOG ${JENKINS_HOME}/copy_reference_file.log
 
 USER ${user}
 
@@ -83,7 +81,6 @@ COPY jenkins.sh /usr/local/bin/jenkins.sh
 COPY tini-shim.sh /bin/tini
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/jenkins.sh"]
 
-# from a derived Dockerfile, can use `RUN plugins.sh active.txt` to setup $REF/plugins from a support bundle
-COPY plugins.txt /usr/share/jenkins/plugins.txt
+# from a derived Dockerfile, can use `RUN plugins.sh active.txt` to setup ${REF}/plugins from a support bundle
 COPY plugins.sh /usr/local/bin/plugins.sh
 COPY install-plugins.sh /usr/local/bin/install-plugins.sh
